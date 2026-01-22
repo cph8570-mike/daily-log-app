@@ -33,7 +33,7 @@ const App = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [inputCode, setInputCode] = useState('');
   const [loginError, setLoginError] = useState(false);
-  const COMPANY_CODE = "8888"; // 您的密碼
+  const COMPANY_CODE = "8888"; 
 
   useEffect(() => {
     const sessionAuth = sessionStorage.getItem('isVerified');
@@ -54,14 +54,14 @@ const App = () => {
   // --- 2. 應用程式主要狀態 ---
   const [activeTab, setActiveTab] = useState('edit');
   const [splitView, setSplitView] = useState(true);
-  const [isPrintMode, setIsPrintMode] = useState(false); // 控制列印模式
+  const [isPrintMode, setIsPrintMode] = useState(false);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saveStatus, setSaveStatus] = useState(''); 
   
   const [aiLoading, setAiLoading] = useState({ photoIndex: null, review: false });
 
-  // 請在此填入您的 API Key (若無可留空)
+  // 請在此填入您的 API Key
   const apiKey = ""; 
 
   const projectOptions = ['高雄lala-20240雛菊見-2026-NO.1', '台南好瀚安平實品屋與接待中心-2026-NO.02', '客變-台中遠雄琉蘊A02-23F-賀小姐', '客變-台中遠雄琉蘊A07-23F-彭小姐', '商-[焼肉ショジョYakiniku SHOJO]-2026-NO.4', '台中洪公館修改案-2026-NO.5'];
@@ -244,16 +244,55 @@ const App = () => {
   };
 
   const copyToClipboard = () => {
-    const text = `【施工日誌】${formData.date}\n案名：${formData.projectName}\n(請使用列印功能產生完整 PDF)`;
-    navigator.clipboard.writeText(text).then(() => alert("已複製！"));
+    const text = `
+【施工日誌】${formData.date} (第 ${formData.dayCount} 天)
+案名：${formData.projectName}
+填表人：${formData.author}
+天氣：${formData.weather}
+-------------------
+【出工人數】
+${formData.manpower.map(m => `${m.type}：${m.count}人\n內容：\n${m.note}`).join('\n')}
+共計：${formData.manpower.reduce((sum, item) => sum + Number(item.count), 0)} 人
+-------------------
+【明日預定】
+${formData.planTomorrow}
+-------------------
+【業主交辦事項】
+${formData.ownerInstructions || '無'}
+-------------------
+【工程檢討 (重要)】
+${formData.engineeringReview || '無'}
+-------------------
+【離場檢查】
+工地整潔：${formData.siteChecks.cleanliness ? '已確認' : '未確認'}
+門窗關閉：${formData.siteChecks.doorsClosed ? '已確認' : '未確認'}
+總電源關閉：${formData.siteChecks.powerOff ? '已確認' : '未確認'}
+-------------------
+※ 現場照片請見附檔
+    `.trim();
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    alert("已複製完整日誌文字！");
   };
 
-  // --- iOS Printing Trigger ---
   const triggerBrowserPrint = () => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        @page { margin: 0; size: auto; }
+        body, html { height: auto !important; overflow: visible !important; }
+      }
+    `;
+    document.head.appendChild(style);
     window.print();
   };
 
-  // --- Components ---
   if (!isVerified) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
@@ -314,7 +353,11 @@ const App = () => {
             <thead><tr className="bg-gray-50"><th className="border border-gray-400 p-1 w-1/4">工種</th><th className="border border-gray-400 p-1 w-16">人數</th><th className="border border-gray-400 p-1">內容</th></tr></thead>
             <tbody>
               {formData.manpower.map(m => (
-                <tr key={m.id}><td className="border border-gray-400 p-1">{m.type}</td><td className="border border-gray-400 p-1 text-center">{m.count}</td><td className="border border-gray-400 p-1">{m.note}</td></tr>
+                <tr key={m.id}>
+                  <td className="border border-gray-400 p-1 align-top pt-2">{m.type}</td>
+                  <td className="border border-gray-400 p-1 text-center align-top pt-2">{m.count}</td>
+                  <td className="border border-gray-400 p-1 whitespace-pre-line leading-relaxed">{m.note}</td>
+                </tr>
               ))}
               <tr className="bg-gray-50 font-bold"><td className="border border-gray-400 p-1 text-right">合計</td><td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((s, i) => s + Number(i.count), 0)}</td><td className="border border-gray-400"></td></tr>
             </tbody>
@@ -353,7 +396,6 @@ const App = () => {
     </div>
   );
 
-  // --- 手機列印模式 ---
   if (isPrintMode) {
     return (
       <div className="min-h-screen bg-gray-100">
@@ -361,16 +403,15 @@ const App = () => {
           <div className="flex items-center gap-2"><h2 className="text-lg font-bold">預覽列印模式</h2></div>
           <div className="flex gap-2">
             <button onClick={() => setIsPrintMode(false)} className="px-4 py-2 bg-slate-600 rounded text-sm flex gap-1"><ArrowLeft className="w-4 h-4"/> 返回</button>
-            <button onClick={triggerBrowserPrint} className="px-4 py-2 bg-blue-600 rounded font-bold text-sm flex gap-1 shadow"><Printer className="w-4 h-4"/> 確認列印</button>
+            <button onClick={triggerBrowserPrint} onTouchEnd={triggerBrowserPrint} className="px-4 py-2 bg-blue-600 rounded font-bold text-sm flex gap-1 shadow"><Printer className="w-4 h-4"/> 確認列印</button>
           </div>
         </div>
         <div className="pt-20 pb-10 px-4 flex justify-center"><PreviewContent /></div>
-        <style>{`@media print { body { background: white; } .print\\:hidden { display: none; } .pt-20 { padding-top: 0 !important; } #log-preview { border: none !important; width: 100% !important; margin: 0 !important; } }`}</style>
+        <style>{`@media print { body { background: white; } .print\\:hidden { display: none; } .pt-20 { padding-top: 0 !important; } #log-preview { border: none !important; width: 100% !important; margin: 0 !important; } html, body { height: auto !important; overflow: visible !important; } }`}</style>
       </div>
     );
   }
 
-  // --- 桌面/編輯模式 ---
   return (
     <div className="min-h-screen bg-gray-50 p-4 font-sans text-gray-800">
       <div className={`mx-auto bg-white shadow-xl rounded-xl border border-gray-200 transition-all ${splitView ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
@@ -397,7 +438,6 @@ const App = () => {
             {/* Editor */}
             <div className={`flex-1 ${(!splitView && activeTab === 'preview') ? 'hidden' : 'block'}`}>
               <div className="space-y-6">
-                {/* Basic Info */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold flex gap-2 border-b pb-2"><FileText className="w-5 h-5 text-blue-500"/> 基本資訊</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -414,7 +454,6 @@ const App = () => {
                   </div>
                 </section>
 
-                {/* Manpower */}
                 <section className="space-y-4">
                   <div className="flex justify-between items-center border-b pb-2"><h3 className="text-lg font-semibold flex gap-2"><Users className="w-5 h-5 text-blue-500"/> 出工紀錄</h3><button onClick={addManpowerRow} className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-100 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增</button></div>
                   <div className="space-y-3">
@@ -422,14 +461,20 @@ const App = () => {
                       <div key={m.id} className="flex flex-col md:flex-row gap-2 md:items-start bg-gray-50 p-3 rounded border">
                         <div className="flex-1"><input type="text" placeholder="工種" value={m.type} onChange={e=>handleManpowerChange(m.id,'type',e.target.value)} className="w-full border rounded p-1.5 text-sm"/></div>
                         <div className="w-24"><input type="number" placeholder="人數" value={m.count} onChange={e=>handleManpowerChange(m.id,'count',e.target.value)} className="w-full border rounded p-1.5 text-sm text-center"/></div>
-                        <div className="flex-[2]"><textarea placeholder="內容" value={m.note} onChange={e=>handleManpowerChange(m.id,'note',e.target.value)} className="w-full border rounded p-1.5 text-sm h-10 resize-none"/></div>
+                        <div className="flex-[2]">
+                          <textarea 
+                            placeholder="內容 (例如：\n1. 天花板封板\n2. 窗簾盒製作)" 
+                            value={m.note} 
+                            onChange={e=>handleManpowerChange(m.id,'note',e.target.value)} 
+                            className="w-full border border-gray-300 rounded p-2 text-sm h-24" 
+                          />
+                        </div>
                         <button onClick={()=>removeManpowerRow(m.id)} className="p-2 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
                       </div>
                     ))}
                   </div>
                 </section>
 
-                {/* Other Inputs */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold border-b pb-2 flex gap-2"><Hammer className="w-5 h-5 text-blue-500"/> 進度與檢討</h3>
                   <div><label className="block text-sm text-gray-600 mb-1">明日預定</label><textarea name="planTomorrow" value={formData.planTomorrow} onChange={handleInputChange} className="w-full border rounded p-2" rows="3"/></div>
@@ -440,7 +485,6 @@ const App = () => {
                   </div>
                 </section>
 
-                {/* Checks */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold border-b pb-2 flex gap-2"><ShieldCheck className="w-5 h-5 text-blue-500"/> 每日檢查</h3>
                   <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded border">
@@ -450,7 +494,6 @@ const App = () => {
                   </div>
                 </section>
 
-                {/* Signature */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold border-b pb-2 flex gap-2"><PenTool className="w-5 h-5 text-blue-500"/> 業主簽名</h3>
                   <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -465,7 +508,6 @@ const App = () => {
                   </div>
                 </section>
 
-                {/* Photos */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold border-b pb-2 flex gap-2"><ImageIcon className="w-5 h-5 text-blue-500"/> 現場照片</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded p-4 text-center cursor-pointer relative h-24 flex items-center justify-center hover:bg-gray-50">
