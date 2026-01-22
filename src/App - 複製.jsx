@@ -23,39 +23,10 @@ import {
   Download,
   AlertTriangle,
   Plus,
-  Trash2,
-  Lock,
-  KeyRound
+  Trash2
 } from 'lucide-react';
 
 const App = () => {
-  // --- 新增：通行碼驗證狀態 ---
-  const [isVerified, setIsVerified] = useState(false);
-  const [inputCode, setInputCode] = useState('');
-  const [loginError, setLoginError] = useState(false);
-  // 設定您的公司通行碼 (例如: 8888)
-  const COMPANY_CODE = "8888"; 
-
-  // 檢查是否已經登入過 (避免重整要重打)
-  useEffect(() => {
-    const sessionAuth = sessionStorage.getItem('isVerified');
-    if (sessionAuth === 'true') {
-      setIsVerified(true);
-    }
-  }, []);
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (inputCode === COMPANY_CODE) {
-      setIsVerified(true);
-      sessionStorage.setItem('isVerified', 'true');
-      setLoginError(false);
-    } else {
-      setLoginError(true);
-    }
-  };
-  // -------------------------
-
   const [activeTab, setActiveTab] = useState('edit');
   const [splitView, setSplitView] = useState(true);
   const [isPrintMode, setIsPrintMode] = useState(false);
@@ -68,6 +39,7 @@ const App = () => {
     review: false
   });
 
+  // 請在此填入您的 API Key，如果沒有就留空
   const apiKey = ""; 
 
   const projectOptions = ['高雄lala-20240雛菊見-2026-NO.1', '台南好瀚安平實品屋與接待中心-2026-NO.02', '客變-台中遠雄琉蘊A02-23F-賀小姐', '客變-台中遠雄琉蘊A07-23F-彭小姐', '商-[焼肉ショジョYakiniku SHOJO]-2026-NO.4', '台中洪公館修改案-2026-NO.5'];
@@ -416,54 +388,6 @@ ${formData.engineeringReview || '無'}
         window.print();
     }, 100);
   };
-
-  // Login Component
-  if (!isVerified) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
-          <div className="flex flex-col items-center mb-6">
-            <div className="bg-blue-100 p-3 rounded-full mb-3">
-              <Lock className="w-8 h-8 text-blue-600" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">請輸入公司通行碼</h2>
-            <p className="text-sm text-gray-500 mt-1">僅限內部授權人員存取</p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
-              <KeyRound className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input 
-                type="password" 
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                placeholder="請輸入密碼"
-                autoFocus
-              />
-            </div>
-            
-            {loginError && (
-              <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-2 rounded">
-                <AlertTriangle className="w-4 h-4" /> 密碼錯誤，請重試
-              </div>
-            )}
-            
-            <button 
-              type="submit" 
-              className="w-full bg-slate-800 text-white py-2.5 rounded-lg hover:bg-slate-700 transition-colors font-medium shadow-md"
-            >
-              進入系統
-            </button>
-          </form>
-          
-          <p className="text-xs text-center text-gray-400 mt-6">
-            Construction Log System v3.3
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // Preview Component
   const PreviewContent = () => (
