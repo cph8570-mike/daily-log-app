@@ -60,7 +60,7 @@ const App = () => {
   // 請在此填入您的 API Key (Gemini)
   const apiKey = ""; 
 
-  const projectOptions = ['高雄lala-20240雛菊見', '台南好瀚安平實品屋與接待中心', '台中焼肉ショジョYakiniku SHOJO 公益店', '台中焼肉ショジョYakiniku SHOJO 洲際店', '台南永龍建設V&A5 杜公館', '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
+  const projectOptions = ['2026高雄lala-20240雛菊見', '2026台南好瀚安平實品屋與接待中心', '2026台中焼肉ショジョYakiniku SHOJO 公益店', '2026台中焼肉ショジョYakiniku SHOJO 洲際店', '2026台南永龍建設V&A5 杜公館', '2027林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
   const authorOptions = ['鄭秉宏', '許晏瑜', '郭畯豪', '蘇盈圲', '劉彥伶'];
   const weatherOptions = ['晴', '陰', '雨', '颱風'];
 
