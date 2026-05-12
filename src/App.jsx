@@ -64,7 +64,7 @@ const App = () => {
   // 請在此填入您的 API Key
   const apiKey = ""; 
 
-  const projectOptions = ['高雄lala-20240雛菊見-2026-NO.1', '台南好瀚安平實品屋與接待中心-2026-NO.02', '客變-台中遠雄琉蘊A02-23F-賀小姐', '客變-台中遠雄琉蘊A07-23F-彭小姐', '商-[焼肉ショジョYakiniku SHOJO]-2026-NO.4', '台中洪公館修改案-2026-NO.5'];
+  const projectOptions = ['高雄lala-20240雛菊見-2026-NO.1', '台南好瀚安平實品屋與接待中心-2026-NO.02', '台中焼肉ショジョYakiniku SHOJO 公益店', '台中焼肉ショジョYakiniku SHOJO 洲際店', '台南永龍建設V&A5 杜公館', '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
   const authorOptions = ['鄭秉宏', '許晏瑜', '郭畯豪', '蘇盈圲', '劉彥伶'];
   const weatherOptions = ['晴', '陰', '雨', '颱風'];
 
