@@ -64,7 +64,7 @@ const App = () => {
   // 請在此填入您的 API Key
   const apiKey = ""; 
 
-  const projectOptions = ['2026-高雄lala-20240雛菊見', '2026-台南好瀚安平實品屋與接待中心', '2026-台中焼肉ショジョYakiniku SHOJO 公益店', '2026-台中焼肉ショジョYakiniku SHOJO 洲際店', '2026-台南永龍建設V&A5 杜公館', '2026-林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
+  const projectOptions = ['高雄lala-20240雛菊見-2026-NO.1', '台南好瀚安平實品屋與接待中心-2026-NO.02', '台中焼肉ショジョYakiniku SHOJO 公益店', '台中焼肉ショジョYakiniku SHOJO 洲際店', '台南永龍建設V&A5 杜公館', '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
   const authorOptions = ['鄭秉宏', '許晏瑜', '郭畯豪', '蘇盈圲', '劉彥伶'];
   const weatherOptions = ['晴', '陰', '雨', '颱風'];
 
@@ -72,18 +72,17 @@ const App = () => {
     projectName: projectOptions[0],
     author: authorOptions[0],
     date: new Date().toISOString().slice(0, 10),
-    startDate: '2023-10-01',
-    endDate: '2023-12-31',
-    dayCount: '15',
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: '2026-12-31',
+    dayCount: '1',
     weather: weatherOptions[0],
-    location: '客廳/主臥',
+    location: '現場',
     manpower: [
-      { id: 1, type: '木工', count: 2, note: '1. 天花板封板\n2. 窗簾盒製作' },
-      { id: 2, type: '水電', count: 1, note: '新增插座拉線' }
+      { id: 1, type: '木工', count: 0, note: '' }
     ],
-    planTomorrow: '1. 客廳天花板封板\n2. 油漆進場批土\n3. 清運廢料',
-    ownerInstructions: '1. 主臥窗簾盒深度確認需達 25cm\n2. 玄關燈具要改用 4000K 色溫',
-    engineeringReview: '1. 廚房排水管路徑與系統櫃圖面有衝突，需盡快確認\n2. 現場垃圾堆積稍多，明日安排清運',
+    planTomorrow: '',
+    ownerInstructions: '',
+    engineeringReview: '',
     photos: [], 
     siteChecks: { cleanliness: false, doorsClosed: false, powerOff: false },
     ownerSignature: null 
@@ -102,6 +101,29 @@ const App = () => {
   };
 
   const [formData, setFormData] = useState(getInitialState);
+
+  // --- V2.2 修改 1: 自動計算施工天數 (今日日期 - 開工日期) ---
+  useEffect(() => {
+    const start = new Date(formData.startDate);
+    const today = new Date(formData.date);
+    if (!isNaN(start) && !isNaN(today)) {
+      const diffTime = today - start;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含開工當日
+      // 只有當計算出的天數不同且為正值時才更新，避免無限迴圈
+      if (diffDays > 0 && diffDays.toString() !== formData.dayCount) {
+        setFormData(prev => ({ ...prev, dayCount: diffDays.toString() }));
+      }
+    }
+  }, [formData.startDate, formData.date]);
+
+  // --- V2.2 修改 2: 動態修改網頁標題 (控制另存為 PDF 時的檔名) ---
+  useEffect(() => {
+    if (isPrintMode) {
+      document.title = `${formData.projectName}-${formData.date}`;
+    } else {
+      document.title = "施工日誌 App V2.2";
+    }
+  }, [isPrintMode, formData.projectName, formData.date]);
 
   // RWD & AutoSave
   useEffect(() => {
@@ -285,7 +307,7 @@ ${formData.engineeringReview || '無'}
     const style = document.createElement('style');
     style.innerHTML = `
       @media print {
-        @page { margin: 0; size: auto; }
+        @page { margin: 10mm; size: auto; }
         body, html { height: auto !important; overflow: visible !important; }
       }
     `;
@@ -327,9 +349,9 @@ ${formData.engineeringReview || '無'}
           <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">專案名稱</span>{formData.projectName}</div>
           <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">施工地點</span>{formData.location}</div>
           <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">開工日期</span>{formData.startDate}</div>
-          <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">預計完工</span>{formData.endDate}</div>
+          <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">今日日期</span>{formData.date}</div>
           <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">天氣</span>{formData.weather}</div>
-          <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">累計工期</span>第 {formData.dayCount} 天</div>
+          <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20 text-blue-800">累計工期</span>第 {formData.dayCount} 天</div>
           <div className="p-2 border-r border-b border-gray-300 flex items-center bg-gray-50">
             <span className="font-bold w-20">工地整潔</span>
             <span className={formData.siteChecks.cleanliness ? "text-green-700" : "text-red-500"}>{formData.siteChecks.cleanliness ? "☑ 已確認" : "☐ 未確認"}</span>
@@ -359,7 +381,7 @@ ${formData.engineeringReview || '無'}
                   <td className="border border-gray-400 p-1 whitespace-pre-line leading-relaxed">{m.note}</td>
                 </tr>
               ))}
-              <tr className="bg-gray-50 font-bold"><td className="border border-gray-400 p-1 text-right">合計</td><td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((s, i) => s + Number(i.count), 0)}</td><td className="border border-gray-400"></td></tr>
+              <tr className="bg-gray-50 font-bold"><td className="border border-gray-400 p-1 text-right">合計</td><td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((sum, item) => sum + Number(item.count), 0)}</td><td className="border border-gray-400"></td></tr>
             </tbody>
           </table>
         </div>
@@ -376,9 +398,9 @@ ${formData.engineeringReview || '無'}
 
         <div className="break-inside-avoid">
           <h4 className="font-bold bg-gray-100 p-1 pl-2 text-sm border-l-4 border-purple-600 mb-2">五、施工照片</h4>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 print:block">
             {formData.photos.length > 0 ? formData.photos.map((p, i) => (
-              <div key={i} className="border border-gray-300 p-1 break-inside-avoid">
+              <div key={i} className="border border-gray-300 p-1 print:inline-block print:w-[48%] print:m-[1%] print:mb-4" style={{ pageBreakInside: 'avoid' }}>
                 <div className="aspect-video w-full bg-gray-100 overflow-hidden"><img src={p.url} className="w-full h-full object-contain" /></div>
                 <div className="text-xs p-1 bg-gray-50 border-t border-gray-200">{p.desc}</div>
               </div>
@@ -402,12 +424,12 @@ ${formData.engineeringReview || '無'}
         <div className="fixed top-0 left-0 right-0 bg-slate-800 text-white p-4 flex justify-between items-center shadow-lg z-50 print:hidden">
           <div className="flex items-center gap-2"><h2 className="text-lg font-bold">預覽列印模式</h2></div>
           <div className="flex gap-2">
-            <button onClick={() => setIsPrintMode(false)} className="px-4 py-2 bg-slate-600 rounded text-sm flex gap-1"><ArrowLeft className="w-4 h-4"/> 返回</button>
-            <button onClick={triggerBrowserPrint} onTouchEnd={triggerBrowserPrint} className="px-4 py-2 bg-blue-600 rounded font-bold text-sm flex gap-1 shadow"><Printer className="w-4 h-4"/> 確認列印</button>
+            <button onClick={() => setIsPrintMode(false)} className="px-4 py-2 bg-slate-600 rounded text-sm flex gap-1"><ArrowLeft className="w-4 h-4"/> 返回編輯</button>
+            <button onClick={triggerBrowserPrint} onTouchEnd={triggerBrowserPrint} className="px-6 py-2 bg-blue-600 rounded font-bold text-sm flex gap-1 shadow-inner"><Printer className="w-4 h-4"/> 確認列印 / 另存 PDF</button>
           </div>
         </div>
         <div className="pt-20 pb-10 px-4 flex justify-center"><PreviewContent /></div>
-        <style>{`@media print { body { background: white; } .print\\:hidden { display: none; } .pt-20 { padding-top: 0 !important; } #log-preview { border: none !important; width: 100% !important; margin: 0 !important; } html, body { height: auto !important; overflow: visible !important; } }`}</style>
+        <style>{`@media print { body { background: white; } .print\\:hidden { display: none !important; } .pt-20 { padding-top: 0 !important; } #log-preview { border: none !important; width: 100% !important; margin: 0 !important; } html, body { height: auto !important; overflow: visible !important; } }`}</style>
       </div>
     );
   }
@@ -417,7 +439,7 @@ ${formData.engineeringReview || '無'}
       <div className={`mx-auto bg-white shadow-xl rounded-xl border border-gray-200 transition-all ${splitView ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
         <div className="bg-slate-800 text-white p-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌 V2.2</h1>
             <div className="flex items-center gap-2 mt-1 text-xs">
               {saveStatus === 'saved' && <span className="bg-green-500 px-2 py-0.5 rounded text-white flex gap-1"><Save className="w-3 h-3"/> 已儲存</span>}
               {saveStatus === 'error' && <span className="bg-red-500 px-2 py-0.5 rounded text-white">錯誤</span>}
@@ -446,10 +468,10 @@ ${formData.engineeringReview || '無'}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div><label className="block text-sm text-gray-600 mb-1">開工日期</label><input type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
-                    <div><label className="block text-sm text-gray-600 mb-1">預計完工</label><input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
                     <div><label className="block text-sm text-gray-600 mb-1">今日日期</label><input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
-                    <div><label className="block text-sm text-gray-600 mb-1">施工天數</label><input type="number" name="dayCount" value={formData.dayCount} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
+                    <div className="bg-blue-50 p-2 rounded-lg"><label className="block text-sm font-bold text-blue-700 mb-1">施工天數 (自動計算)</label><input type="number" name="dayCount" value={formData.dayCount} onChange={handleInputChange} className="w-full border border-blue-200 rounded p-2 font-bold text-blue-800" /></div>
                     <div><label className="block text-sm text-gray-600 mb-1">天氣</label><select name="weather" value={formData.weather} onChange={handleInputChange} className="w-full border rounded p-2 bg-white">{weatherOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                    <div><label className="block text-sm text-gray-600 mb-1">預計完工</label><input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
                     <div><label className="block text-sm text-gray-600 mb-1">施工地點</label><input type="text" name="location" value={formData.location} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
                   </div>
                 </section>
