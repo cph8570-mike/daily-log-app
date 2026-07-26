@@ -14,7 +14,6 @@ import {
   Save,
   Sparkles,
   Loader2,
-  Layout,
   Maximize2,
   Minimize2,
   ArrowLeft,
@@ -61,10 +60,16 @@ const App = () => {
   
   const [aiLoading, setAiLoading] = useState({ photoIndex: null, review: false });
 
-  // 請在此填入您的 API Key
+  // 請在此填入您的 Gemini API Key (可選)
   const apiKey = ""; 
 
-  const projectOptions = ['高雄lalaport-20240雛菊見', '台南好瀚安平實品屋與接待中心', '台中焼肉ショジョYakiniku SHOJO 公益店', '台中焼肉ショジョYakiniku SHOJO 洲際店', '台南永龍建設V&A5 杜公館', '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'];
+  const projectOptions = [
+    '高雄lala-20240雛菊見-2026-NO.1', 
+    '台南好瀚安平實品屋與接待中心-2026-NO.02', 
+    '台中焼肉ショジョYakiniku SHOJO 公益店', 
+    '台中焼肉ショジョYakiniku SHOJO 洲際店', 
+    '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'
+  ];
   const authorOptions = ['鄭秉宏', '許晏瑜', '郭畯豪', '蘇盈圲', '劉彥伶'];
   const weatherOptions = ['晴', '陰', '雨', '颱風'];
 
@@ -102,30 +107,46 @@ const App = () => {
 
   const [formData, setFormData] = useState(getInitialState);
 
-  // --- V2.2 修改 1: 自動計算施工天數 (今日日期 - 開工日期) ---
+  // --- V2.3 功能：計算星期幾與是否為週末 (六、日) ---
+  const getDayOfWeekInfo = (dateString) => {
+    if (!dateString) return { text: '', isWeekend: false };
+    const dateObj = new Date(dateString);
+    if (isNaN(dateObj.getTime())) return { text: '', isWeekend: false };
+    
+    const days = ['日', '一', '二', '三', '四', '五', '六'];
+    const dayIndex = dateObj.getDay();
+    const isWeekend = (dayIndex === 0 || dayIndex === 6); // 0是週日，6是週六
+    return {
+      text: `(${days[dayIndex]})`,
+      isWeekend
+    };
+  };
+
+  const todayDayInfo = getDayOfWeekInfo(formData.date);
+
+  // --- 自動計算施工天數 (今日日期 - 開工日期 + 1) ---
   useEffect(() => {
     const start = new Date(formData.startDate);
     const today = new Date(formData.date);
     if (!isNaN(start) && !isNaN(today)) {
       const diffTime = today - start;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含開工當日
-      // 只有當計算出的天數不同且為正值時才更新，避免無限迴圈
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含開工首日
       if (diffDays > 0 && diffDays.toString() !== formData.dayCount) {
         setFormData(prev => ({ ...prev, dayCount: diffDays.toString() }));
       }
     }
   }, [formData.startDate, formData.date]);
 
-  // --- V2.2 修改 2: 動態修改網頁標題 (控制另存為 PDF 時的檔名) ---
+  // --- 動態修改網頁標題 (控制另存為 PDF 時的預設檔名) ---
   useEffect(() => {
     if (isPrintMode) {
       document.title = `${formData.projectName}-${formData.date}`;
     } else {
-      document.title = "施工日誌 App V2.2";
+      document.title = "施工日誌 App V2.3";
     }
   }, [isPrintMode, formData.projectName, formData.date]);
 
-  // RWD & AutoSave
+  // RWD 視窗切換與本機自動存檔
   useEffect(() => {
     const checkWidth = () => { setSplitView(window.innerWidth >= 1024); };
     checkWidth();
@@ -143,7 +164,7 @@ const App = () => {
     }
   }, [formData]);
 
-  // Image Compression
+  // 圖片自動壓縮邏輯
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -167,7 +188,7 @@ const App = () => {
     });
   };
 
-  // Gemini API
+  // Gemini API 呼叫 (可選)
   const callGeminiAPI = async (payload) => {
     if (!apiKey) return null;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -205,7 +226,7 @@ const App = () => {
     finally { setAiLoading(p => ({ ...p, photoIndex: null })); }
   };
 
-  // Form Handlers
+  // 表單與輸入處理
   const handleReset = () => {
     if (window.confirm('確定要清除所有資料並重置嗎？')) {
       localStorage.removeItem('constructionLogData_v2');
@@ -233,7 +254,7 @@ const App = () => {
   
   const toggleCheck = (f) => setFormData(p => ({ ...p, siteChecks: { ...p.siteChecks, [f]: !p.siteChecks[f] } }));
 
-  // Canvas
+  // 電子簽名板 Canvas 操作
   const startDrawing = (e) => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); const rect = canvas.getBoundingClientRect();
@@ -265,9 +286,10 @@ const App = () => {
     if (canvas) setFormData(p => ({ ...p, ownerSignature: canvas.toDataURL() }));
   };
 
+  // 複製文字功能 (適用 LINE 回報)
   const copyToClipboard = () => {
     const text = `
-【施工日誌】${formData.date} (第 ${formData.dayCount} 天)
+【施工日誌】${formData.date} ${todayDayInfo.text} (第 ${formData.dayCount} 天)
 案名：${formData.projectName}
 填表人：${formData.author}
 天氣：${formData.weather}
@@ -340,7 +362,12 @@ ${formData.engineeringReview || '無'}
         <h2 className="text-2xl font-bold tracking-widest text-gray-900">工程施工日誌</h2>
         <div className="flex justify-between items-end mt-2 px-4 text-sm text-gray-600">
           <span>填表人：{formData.author}</span>
-          <span>{formData.date}</span>
+          <span>
+            {formData.date}{' '}
+            <span className={todayDayInfo.isWeekend ? "text-red-600 font-bold print:text-red-600" : ""}>
+              {todayDayInfo.text}
+            </span>
+          </span>
         </div>
       </div>
 
@@ -348,8 +375,20 @@ ${formData.engineeringReview || '無'}
         <div className="grid grid-cols-2">
           <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">專案名稱</span>{formData.projectName}</div>
           <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">施工地點</span>{formData.location}</div>
-          <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">開工日期</span>{formData.startDate}</div>
-          <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20">今日日期</span>{formData.date}</div>
+          <div className="p-2 border-b border-r border-gray-300 flex">
+            <span className="font-bold w-20">開工日期</span>
+            {formData.startDate}{' '}
+            <span className={getDayOfWeekInfo(formData.startDate).isWeekend ? "text-red-600 font-bold print:text-red-600 ml-1" : "ml-1"}>
+              {getDayOfWeekInfo(formData.startDate).text}
+            </span>
+          </div>
+          <div className="p-2 border-b border-gray-300 flex">
+            <span className="font-bold w-20">今日日期</span>
+            {formData.date}{' '}
+            <span className={todayDayInfo.isWeekend ? "text-red-600 font-bold print:text-red-600 ml-1" : "ml-1"}>
+              {todayDayInfo.text}
+            </span>
+          </div>
           <div className="p-2 border-b border-r border-gray-300 flex"><span className="font-bold w-20">天氣</span>{formData.weather}</div>
           <div className="p-2 border-b border-gray-300 flex"><span className="font-bold w-20 text-blue-800">累計工期</span>第 {formData.dayCount} 天</div>
           <div className="p-2 border-r border-b border-gray-300 flex items-center bg-gray-50">
@@ -439,7 +478,7 @@ ${formData.engineeringReview || '無'}
       <div className={`mx-auto bg-white shadow-xl rounded-xl border border-gray-200 transition-all ${splitView ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
         <div className="bg-slate-800 text-white p-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌 V2.2</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌 V2.3</h1>
             <div className="flex items-center gap-2 mt-1 text-xs">
               {saveStatus === 'saved' && <span className="bg-green-500 px-2 py-0.5 rounded text-white flex gap-1"><Save className="w-3 h-3"/> 已儲存</span>}
               {saveStatus === 'error' && <span className="bg-red-500 px-2 py-0.5 rounded text-white">錯誤</span>}
@@ -467,8 +506,18 @@ ${formData.engineeringReview || '無'}
                     <div><label className="block text-sm text-gray-600 mb-1">填表人</label><select name="author" value={formData.author} onChange={handleInputChange} className="w-full border rounded p-2 bg-white">{authorOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-sm text-gray-600 mb-1">開工日期</label><input type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
-                    <div><label className="block text-sm text-gray-600 mb-1">今日日期</label><input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        開工日期 <span className={getDayOfWeekInfo(formData.startDate).isWeekend ? "text-red-600 font-bold" : "text-gray-500"}>{getDayOfWeekInfo(formData.startDate).text}</span>
+                      </label>
+                      <input type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} className="w-full border rounded p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        今日日期 <span className={todayDayInfo.isWeekend ? "text-red-600 font-bold" : "text-gray-500"}>{todayDayInfo.text}</span>
+                      </label>
+                      <input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full border rounded p-2" />
+                    </div>
                     <div className="bg-blue-50 p-2 rounded-lg"><label className="block text-sm font-bold text-blue-700 mb-1">施工天數 (自動計算)</label><input type="number" name="dayCount" value={formData.dayCount} onChange={handleInputChange} className="w-full border border-blue-200 rounded p-2 font-bold text-blue-800" /></div>
                     <div><label className="block text-sm text-gray-600 mb-1">天氣</label><select name="weather" value={formData.weather} onChange={handleInputChange} className="w-full border rounded p-2 bg-white">{weatherOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
                     <div><label className="block text-sm text-gray-600 mb-1">預計完工</label><input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} className="w-full border rounded p-2" /></div>
