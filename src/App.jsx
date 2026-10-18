@@ -4,8 +4,7 @@ import {
   Users, 
   Hammer, 
   FileText,
-  Image as ImageIcon,
-  User,
+D  Image as ImageIcon,
   CheckSquare,
   AlertCircle,
   ShieldCheck,
@@ -24,7 +23,8 @@ import {
   Plus,
   Trash2,
   Lock,
-  KeyRound
+  KeyRound,
+  Clock
 } from 'lucide-react';
 
 const App = () => {
@@ -68,7 +68,8 @@ const App = () => {
     '台南好瀚安平實品屋與接待中心-2026-NO.02', 
     '台中焼肉ショジョYakiniku SHOJO 公益店', 
     '台中焼肉ショジョYakiniku SHOJO 洲際店', 
-    '台南-允將海安方公館'
+    '台南永龍建設V&A5 杜公館', 
+    '林口-MITSUI OUTLET PARK 饗麻饗辣PLUS'
   ];
   const authorOptions = ['鄭秉宏', '許晏瑜', '郭畯豪', '蘇盈圲', '劉彥伶'];
   const weatherOptions = ['晴', '陰', '雨', '颱風'];
@@ -82,12 +83,14 @@ const App = () => {
     dayCount: '1',
     weather: weatherOptions[0],
     location: '現場',
+    enableOvertimeSplit: false, // V2.5 新增：預設關閉「賣場加班/分包模式」，一般工地不受干擾
     manpower: [
-      { id: 1, type: '木工', count: 0, note: '' }
+      { id: 1, type: '木工', payer: 'ours', count: 2, overtimeCount: 0, note: '1. 天花板封板\n2. 窗簾盒製作' },
+      { id: 2, type: '水電', payer: 'ours', count: 1, overtimeCount: 0, note: '新增插座拉線' }
     ],
-    planTomorrow: '',
-    ownerInstructions: '',
-    engineeringReview: '',
+    planTomorrow: '1. 客廳天花板封板\n2. 油漆進場批土\n3. 清運廢料',
+    ownerInstructions: '1. 主臥窗簾盒深度確認需達 25cm\n2. 玄關燈具要改用 4000K 色溫',
+    engineeringReview: '1. 廚房排水管路徑與系統櫃圖面有衝突，需盡快確認\n2. 現場垃圾堆積稍多，明日安排清運',
     photos: [], 
     siteChecks: { cleanliness: false, doorsClosed: false, powerOff: false },
     ownerSignature: null 
@@ -99,6 +102,14 @@ const App = () => {
       try {
         const parsedData = JSON.parse(savedData);
         if (!parsedData.ownerSignature) parsedData.ownerSignature = null;
+        if (typeof parsedData.enableOvertimeSplit === 'undefined') parsedData.enableOvertimeSplit = false;
+        if (parsedData.manpower) {
+          parsedData.manpower = parsedData.manpower.map(m => ({
+            payer: 'ours',
+            overtimeCount: 0,
+            ...m
+          }));
+        }
         return { ...defaultState, ...parsedData };
       } catch (e) { return defaultState; }
     }
@@ -115,7 +126,7 @@ const App = () => {
     
     const days = ['日', '一', '二', '三', '四', '五', '六'];
     const dayIndex = dateObj.getDay();
-    const isWeekend = (dayIndex === 0 || dayIndex === 6); // 0是週日，6是週六
+    const isWeekend = (dayIndex === 0 || dayIndex === 6);
     return {
       text: `(${days[dayIndex]})`,
       isWeekend
@@ -124,13 +135,49 @@ const App = () => {
 
   const todayDayInfo = getDayOfWeekInfo(formData.date);
 
+  // --- V2.4/V2.5：自動計算加班人數與清潔費分攤邏輯 ---
+  const getOvertimeSummary = () => {
+    let ourOvertime = 0;
+    let ownerOvertime = 0;
+
+    formData.manpower.forEach(m => {
+      const ot = Number(m.overtimeCount) || 0;
+      if (ot > 0) {
+        if (m.payer === 'owner') {
+          ownerOvertime += ot;
+        } else {
+          ourOvertime += ot;
+        }
+      }
+    });
+
+    const totalOvertime = ourOvertime + ownerOvertime;
+    let feeText = '無加班（不計清潔費）';
+    let badgeColor = 'bg-gray-100 text-gray-600 border-gray-300';
+
+    if (ourOvertime > 0 && ownerOvertime > 0) {
+      feeText = '雙方共同加班 ➡️ 清潔費【各負擔 1/2】';
+      badgeColor = 'bg-purple-50 text-purple-800 border-purple-300 font-bold';
+    } else if (ourOvertime > 0) {
+      feeText = '僅我方工班加班 ➡️ 清潔費【我方負擔】';
+      badgeColor = 'bg-blue-50 text-blue-800 border-blue-300 font-bold';
+    } else if (ownerOvertime > 0) {
+      feeText = '僅業主工班加班 ➡️ 清潔費【業主負擔】';
+      badgeColor = 'bg-amber-50 text-amber-800 border-amber-300 font-bold';
+    }
+
+    return { ourOvertime, ownerOvertime, totalOvertime, feeText, badgeColor };
+  };
+
+  const overtimeSummary = getOvertimeSummary();
+
   // --- 自動計算施工天數 (今日日期 - 開工日期 + 1) ---
   useEffect(() => {
     const start = new Date(formData.startDate);
     const today = new Date(formData.date);
     if (!isNaN(start) && !isNaN(today)) {
       const diffTime = today - start;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含開工首日
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
       if (diffDays > 0 && diffDays.toString() !== formData.dayCount) {
         setFormData(prev => ({ ...prev, dayCount: diffDays.toString() }));
       }
@@ -142,7 +189,7 @@ const App = () => {
     if (isPrintMode) {
       document.title = `${formData.projectName}-${formData.date}`;
     } else {
-      document.title = "施工日誌 App V2.3";
+      document.title = "施工日誌 App V2.5";
     }
   }, [isPrintMode, formData.projectName, formData.date]);
 
@@ -235,7 +282,7 @@ const App = () => {
   };
   const handleInputChange = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleManpowerChange = (id, f, v) => setFormData(p => ({ ...p, manpower: p.manpower.map(m => m.id === id ? { ...m, [f]: v } : m) }));
-  const addManpowerRow = () => setFormData(p => ({ ...p, manpower: [...p.manpower, { id: Date.now(), type: '', count: 1, note: '' }] }));
+  const addManpowerRow = () => setFormData(p => ({ ...p, manpower: [...p.manpower, { id: Date.now(), type: '', payer: 'ours', count: 1, overtimeCount: 0, note: '' }] }));
   const removeManpowerRow = (id) => setFormData(p => ({ ...p, manpower: p.manpower.filter(m => m.id !== id) }));
   
   const handlePhotoUpload = async (e) => {
@@ -286,17 +333,28 @@ const App = () => {
     if (canvas) setFormData(p => ({ ...p, ownerSignature: canvas.toDataURL() }));
   };
 
-  // 複製文字功能 (適用 LINE 回報)
+  // 複製文字功能 (根據是否開啟「賣場加班/分包模式」自動切換格式)
   const copyToClipboard = () => {
+    const totalNormal = formData.manpower.reduce((sum, item) => sum + Number(item.count || 0), 0);
+    
+    let manpowerSection = '';
+    if (formData.enableOvertimeSplit) {
+      manpowerSection = `【出工與加班紀錄】\n${formData.manpower.map(m => {
+        const payerTag = m.payer === 'owner' ? '[業主工班]' : '[我方工班]';
+        const otTag = Number(m.overtimeCount) > 0 ? ` (🌙加班：${m.overtimeCount}人)` : '';
+        return `${payerTag} ${m.type}：${m.count}人${otTag}\n內容：\n${m.note}`;
+      }).join('\n')}\n-------------------\n共計出工：${totalNormal} 人 ｜ 共計加班：${overtimeSummary.totalOvertime} 人\n💰 加班清潔費：${overtimeSummary.feeText}`;
+    } else {
+      manpowerSection = `【出工人數】\n${formData.manpower.map(m => `${m.type}：${m.count}人\n內容：\n${m.note}`).join('\n')}\n共計：${totalNormal} 人`;
+    }
+
     const text = `
 【施工日誌】${formData.date} ${todayDayInfo.text} (第 ${formData.dayCount} 天)
 案名：${formData.projectName}
 填表人：${formData.author}
 天氣：${formData.weather}
 -------------------
-【出工人數】
-${formData.manpower.map(m => `${m.type}：${m.count}人\n內容：\n${m.note}`).join('\n')}
-共計：${formData.manpower.reduce((sum, item) => sum + Number(item.count), 0)} 人
+${manpowerSection}
 -------------------
 【明日預定】
 ${formData.planTomorrow}
@@ -409,20 +467,73 @@ ${formData.engineeringReview || '無'}
 
       <div className="space-y-4">
         <div>
-          <h4 className="font-bold bg-gray-100 p-1 pl-2 text-sm border-l-4 border-gray-800 mb-1">一、出工紀錄</h4>
-          <table className="w-full text-sm border-collapse border border-gray-400">
-            <thead><tr className="bg-gray-50"><th className="border border-gray-400 p-1 w-1/4">工種</th><th className="border border-gray-400 p-1 w-16">人數</th><th className="border border-gray-400 p-1">內容</th></tr></thead>
-            <tbody>
-              {formData.manpower.map(m => (
-                <tr key={m.id}>
-                  <td className="border border-gray-400 p-1 align-top pt-2">{m.type}</td>
-                  <td className="border border-gray-400 p-1 text-center align-top pt-2">{m.count}</td>
-                  <td className="border border-gray-400 p-1 whitespace-pre-line leading-relaxed">{m.note}</td>
+          <h4 className="font-bold bg-gray-100 p-1 pl-2 text-sm border-l-4 border-gray-800 mb-1">
+            {formData.enableOvertimeSplit ? '一、出工與加班紀錄' : '一、出工紀錄'}
+          </h4>
+          
+          {/* 依據模式自動切換表格欄位 */}
+          {formData.enableOvertimeSplit ? (
+            <table className="w-full text-sm border-collapse border border-gray-400">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border border-gray-400 p-1 w-28">工種</th>
+                  <th className="border border-gray-400 p-1 w-16">歸屬</th>
+                  <th className="border border-gray-400 p-1 w-14">出工</th>
+                  <th className="border border-gray-400 p-1 w-14">加班</th>
+                  <th className="border border-gray-400 p-1">施工內容</th>
                 </tr>
-              ))}
-              <tr className="bg-gray-50 font-bold"><td className="border border-gray-400 p-1 text-right">合計</td><td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((sum, item) => sum + Number(item.count), 0)}</td><td className="border border-gray-400"></td></tr>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {formData.manpower.map(m => (
+                  <tr key={m.id}>
+                    <td className="border border-gray-400 p-1 align-top pt-2 font-medium">{m.type}</td>
+                    <td className="border border-gray-400 p-1 text-center align-top pt-2 text-xs">
+                      <span className={m.payer === 'owner' ? 'text-amber-700 font-bold' : 'text-blue-700'}>
+                        {m.payer === 'owner' ? '業主' : '我方'}
+                      </span>
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center align-top pt-2">{m.count}</td>
+                    <td className={`border border-gray-400 p-1 text-center align-top pt-2 ${Number(m.overtimeCount) > 0 ? 'text-orange-600 font-bold bg-orange-50' : 'text-gray-400'}`}>
+                      {Number(m.overtimeCount) > 0 ? m.overtimeCount : '-'}
+                    </td>
+                    <td className="border border-gray-400 p-1 whitespace-pre-line leading-relaxed">{m.note}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-bold">
+                  <td colSpan={2} className="border border-gray-400 p-1 text-right">總計人數</td>
+                  <td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((sum, item) => sum + Number(item.count || 0), 0)}</td>
+                  <td className="border border-gray-400 p-1 text-center text-orange-700">{overtimeSummary.totalOvertime}</td>
+                  <td className="border border-gray-400 p-1 text-xs">
+                    <span className="font-bold">賣場加班清潔費分攤：</span>{overtimeSummary.feeText}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm border-collapse border border-gray-400">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border border-gray-400 p-1 w-1/4">工種</th>
+                  <th className="border border-gray-400 p-1 w-16">人數</th>
+                  <th className="border border-gray-400 p-1">內容</th>
+                </tr>
+              </thead>
+              <tbody>
+                {formData.manpower.map(m => (
+                  <tr key={m.id}>
+                    <td className="border border-gray-400 p-1 align-top pt-2">{m.type}</td>
+                    <td className="border border-gray-400 p-1 text-center align-top pt-2">{m.count}</td>
+                    <td className="border border-gray-400 p-1 whitespace-pre-line leading-relaxed">{m.note}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-bold">
+                  <td className="border border-gray-400 p-1 text-right">合計</td>
+                  <td className="border border-gray-400 p-1 text-center">{formData.manpower.reduce((sum, item) => sum + Number(item.count || 0), 0)}</td>
+                  <td className="border border-gray-400"></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div>
@@ -478,7 +589,7 @@ ${formData.engineeringReview || '無'}
       <div className={`mx-auto bg-white shadow-xl rounded-xl border border-gray-200 transition-all ${splitView ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
         <div className="bg-slate-800 text-white p-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌 V2.3</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> 施工日誌 V2.5</h1>
             <div className="flex items-center gap-2 mt-1 text-xs">
               {saveStatus === 'saved' && <span className="bg-green-500 px-2 py-0.5 rounded text-white flex gap-1"><Save className="w-3 h-3"/> 已儲存</span>}
               {saveStatus === 'error' && <span className="bg-red-500 px-2 py-0.5 rounded text-white">錯誤</span>}
@@ -526,21 +637,92 @@ ${formData.engineeringReview || '無'}
                 </section>
 
                 <section className="space-y-4">
-                  <div className="flex justify-between items-center border-b pb-2"><h3 className="text-lg font-semibold flex gap-2"><Users className="w-5 h-5 text-blue-500"/> 出工紀錄</h3><button onClick={addManpowerRow} className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-100 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增</button></div>
+                  <div className="flex flex-wrap justify-between items-center border-b pb-2 gap-2">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold flex gap-2 items-center"><Users className="w-5 h-5 text-blue-500"/> 出工紀錄</h3>
+                      {/* V2.5 新增：特例工地切換開關 */}
+                      <label className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full cursor-pointer hover:bg-amber-100 transition">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableOvertimeSplit || false} 
+                          onChange={e => setFormData(p => ({ ...p, enableOvertimeSplit: e.target.checked }))}
+                          className="rounded text-amber-600 focus:ring-0 w-3.5 h-3.5"
+                        />
+                        <span className="font-medium">啟用賣場加班/分包計費</span>
+                      </label>
+                    </div>
+                    <button onClick={addManpowerRow} className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-100 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增工種</button>
+                  </div>
+
+                  {/* 僅在啟用時顯示清潔費分攤看板 */}
+                  {formData.enableOvertimeSplit && (
+                    <div className={`p-3 rounded-lg border text-sm flex flex-col md:flex-row md:items-center justify-between gap-2 ${overtimeSummary.badgeColor}`}>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 shrink-0" />
+                        <span>{overtimeSummary.feeText}</span>
+                      </div>
+                      <div className="text-xs opacity-80">
+                        (我方加班: {overtimeSummary.ourOvertime}人 / 業主加班: {overtimeSummary.ownerOvertime}人)
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     {formData.manpower.map(m => (
-                      <div key={m.id} className="flex flex-col md:flex-row gap-2 md:items-start bg-gray-50 p-3 rounded border">
-                        <div className="flex-1"><input type="text" placeholder="工種" value={m.type} onChange={e=>handleManpowerChange(m.id,'type',e.target.value)} className="w-full border rounded p-1.5 text-sm"/></div>
-                        <div className="w-24"><input type="number" placeholder="人數" value={m.count} onChange={e=>handleManpowerChange(m.id,'count',e.target.value)} className="w-full border rounded p-1.5 text-sm text-center"/></div>
-                        <div className="flex-[2]">
+                      <div key={m.id} className="bg-gray-50 p-3 rounded-lg border space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* 工種名稱 */}
+                          <div className="flex-1 min-w-[120px]">
+                            <input type="text" placeholder="工種 (如: 木工/水電)" value={m.type} onChange={e=>handleManpowerChange(m.id,'type',e.target.value)} className="w-full border rounded p-1.5 text-sm bg-white"/>
+                          </div>
+
+                          {/* 僅在啟用時顯示：歸屬切換按鈕 */}
+                          {formData.enableOvertimeSplit && (
+                            <div className="flex rounded border overflow-hidden text-xs bg-white">
+                              <button
+                                type="button"
+                                onClick={() => handleManpowerChange(m.id, 'payer', 'ours')}
+                                className={`px-2.5 py-1.5 font-medium transition ${m.payer !== 'owner' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                              >
+                                我方工班
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleManpowerChange(m.id, 'payer', 'owner')}
+                                className={`px-2.5 py-1.5 font-medium transition ${m.payer === 'owner' ? 'bg-amber-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                              >
+                                業主工班
+                              </button>
+                            </div>
+                          )}
+
+                          {/* 一般出工人數 */}
+                          <div className="flex items-center gap-1 bg-white border rounded px-2 py-1">
+                            <span className="text-xs text-gray-500">出工</span>
+                            <input type="number" min="0" value={m.count} onChange={e=>handleManpowerChange(m.id,'count',e.target.value)} className="w-10 text-sm text-center font-bold outline-none"/>
+                            <span className="text-xs text-gray-400">人</span>
+                          </div>
+
+                          {/* 僅在啟用時顯示：加班人數 */}
+                          {formData.enableOvertimeSplit && (
+                            <div className={`flex items-center gap-1 border rounded px-2 py-1 transition ${Number(m.overtimeCount) > 0 ? 'bg-orange-50 border-orange-300' : 'bg-white'}`}>
+                              <span className={`text-xs font-medium ${Number(m.overtimeCount) > 0 ? 'text-orange-700' : 'text-gray-500'}`}>🌙 加班</span>
+                              <input type="number" min="0" value={m.overtimeCount || 0} onChange={e=>handleManpowerChange(m.id,'overtimeCount',e.target.value)} className={`w-10 text-sm text-center font-bold outline-none bg-transparent ${Number(m.overtimeCount) > 0 ? 'text-orange-700' : 'text-gray-600'}`}/>
+                              <span className="text-xs text-gray-400">人</span>
+                            </div>
+                          )}
+
+                          <button onClick={()=>removeManpowerRow(m.id)} className="p-1.5 text-red-400 hover:text-red-600 ml-auto"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+
+                        <div>
                           <textarea 
-                            placeholder="內容 (例如：\n1. 天花板封板\n2. 窗簾盒製作)" 
+                            placeholder="施工內容 (例如：\n1. 天花板封板\n2. 窗簾盒製作)" 
                             value={m.note} 
                             onChange={e=>handleManpowerChange(m.id,'note',e.target.value)} 
-                            className="w-full border border-gray-300 rounded p-2 text-sm h-24" 
+                            className="w-full border border-gray-300 rounded p-2 text-sm h-20 bg-white" 
                           />
                         </div>
-                        <button onClick={()=>removeManpowerRow(m.id)} className="p-2 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
                       </div>
                     ))}
                   </div>
